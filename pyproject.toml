@@ -1,0 +1,34 @@
+[project]
+name = "splitwise-bulk-upload"
+version = "0.1.0"
+description = "Bulk upload bank and credit card transactions from CSV to Splitwise"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Jeet" }]
+keywords = ["splitwise", "csv", "expenses", "bank", "import"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (32-bit)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+splitwise-bulk = "splitwise_bulk.cli:main"
+splitwise-bulk-gui = "splitwise_bulk.gui:main"
+splitwise-fasttrack = "splitwise_bulk.gui:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
