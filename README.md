@@ -7,7 +7,7 @@ Built for a household group (you + partner): each expense can be **split 50/50**
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/splitwise-fasttrack.git
+git clone https://github.com/jeetpc9/splitwise-fasttrack.git
 cd splitwise-fasttrack
 ./scripts/setup.sh
 cp .env.example .env   # add SPLITWISE_API_KEY
