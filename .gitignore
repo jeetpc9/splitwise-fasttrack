@@ -10,3 +10,17 @@ build/
 Splitwise FastTrack.app/
 Splitwise Bulk Upload.app/
 results_*.csv
+
+# Publication safety: local credentials and private exports
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.p12
+*.pfx
+serviceAccountKey*.json
+*firebase-adminsdk*.json
+credentials.json
+private_key.txt

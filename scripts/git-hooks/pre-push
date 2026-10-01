@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""Block a push that still contains a private key or service-account JSON.
+
+Reads the standard pre-push ref list on stdin. Prints only the blocking reason.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import sys
+
+PEM = re.compile(
+    r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
+    re.S,
+)
+PLACEHOLDER = re.compile(r"(\.\.\.|YOUR_|example|placeholder|changeme)", re.I)
+KNOWN_PATH = "hostinger-deploy/aajkyabanega/secrets/serviceAccountKey.json"
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(
+        ["git", *args], text=True, errors="replace", stderr=subprocess.DEVNULL
+    )
+
+
+def blob_reason(sha: str, path: str) -> str | None:
+    lowered = path.lower()
+    if lowered.endswith("serviceaccountkey.json") or (
+        "firebase-adminsdk" in lowered and lowered.endswith(".json")
+    ):
+        return "service-account JSON filename"
+    try:
+        size = int(git("cat-file", "-s", sha).strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+    if size > 2_000_000:
+        return None
+    raw = subprocess.check_output(
+        ["git", "cat-file", "-p", sha], stderr=subprocess.DEVNULL
+    )
+    text = raw.decode("utf-8", "replace")
+    if text.lstrip().startswith("{"):
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            doc = None
+        if (
+            isinstance(doc, dict)
+            and doc.get("type") == "service_account"
+            and doc.get("private_key")
+        ):
+            return "service-account JSON contents"
+    for match in PEM.finditer(text):
+        chunk = match.group(0)
+        if len(chunk) > 400 and not PLACEHOLDER.search(chunk):
+            return "complete private key"
+    return None
+
+
+def blocks(local_sha: str, remote_sha: str) -> str | None:
+    try:
+        reachable = git("rev-list", "-n", "1", local_sha, "--", KNOWN_PATH)
+    except subprocess.CalledProcessError:
+        reachable = ""
+    if reachable.strip():
+        return (
+            "Firebase service-account key is still reachable from the branch being pushed"
+        )
+
+    if remote_sha == "0" * 40:
+        rev_range = local_sha
+    else:
+        rev_range = f"{remote_sha}..{local_sha}"
+    try:
+        objects = git("rev-list", "--objects", rev_range)
+    except subprocess.CalledProcessError:
+        return None
+    seen: set[str] = set()
+    for row in objects.splitlines():
+        sha, _, path = row.partition(" ")
+        if sha in seen:
+            continue
+        try:
+            kind = git("cat-file", "-t", sha).strip()
+        except subprocess.CalledProcessError:
+            continue
+        if kind != "blob":
+            continue
+        seen.add(sha)
+        reason = blob_reason(sha, path)
+        if reason:
+            where = path or sha[:12]
+            return f"{reason} in {where}"
+    return None
+
+
+def main() -> int:
+    blocked = False
+    for line in sys.stdin:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        _local_ref, local_sha, _remote_ref, remote_sha = parts[:4]
+        if local_sha == "0" * 40:
+            continue
+        reason = blocks(local_sha, remote_sha)
+        if reason:
+            print(f"pre-push blocked: {reason}.", file=sys.stderr)
+            print("The secret value was not printed.", file=sys.stderr)
+            blocked = True
+    if blocked:
+        print(
+            "Remove the secret from history and revoke it before pushing.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

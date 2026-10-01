@@ -1,0 +1,14 @@
+title = "Local secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored libraries and documentation placeholders. Do not allowlist service-account files."
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)hostinger-build/''',
+]
+regexes = [
+  '''-----BEGIN PRIVATE KEY-----\\n\.\.\.\\n-----END PRIVATE KEY-----''',
+]
